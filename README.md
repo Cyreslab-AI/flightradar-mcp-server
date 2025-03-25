@@ -1,5 +1,7 @@
 # FlightRadar MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@Cyreslab-AI/flightradar-mcp-server)](https://smithery.ai/server/@Cyreslab-AI/flightradar-mcp-server)
+
 A Model Context Protocol (MCP) server that provides real-time flight tracking and status information using the AviationStack API.
 
 ## Features
@@ -11,6 +13,14 @@ This MCP server provides three main tools:
 3. **get_flight_status**: Get a human-readable status summary for a specific flight
 
 ## Installation
+
+### Installing via Smithery
+
+To install flightradar-mcp-server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@Cyreslab-AI/flightradar-mcp-server):
+
+```bash
+npx -y @smithery/cli install @Cyreslab-AI/flightradar-mcp-server --client claude
+```
 
 ### Prerequisites
 

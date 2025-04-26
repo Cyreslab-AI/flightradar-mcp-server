@@ -4,6 +4,10 @@
 
 A Model Context Protocol (MCP) server that provides real-time flight tracking and status information using the AviationStack API.
 
+<a href="https://glama.ai/mcp/servers/@Cyreslab-AI/flightradar-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Cyreslab-AI/flightradar-mcp-server/badge" alt="FlightRadar Server MCP server" />
+</a>
+
 ## Features
 
 This MCP server provides three main tools:

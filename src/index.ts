@@ -10,14 +10,12 @@
  * - Checking flight status
  */
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import {
-  CallToolRequestSchema,
-  ErrorCode,
-  ListToolsRequestSchema,
-  McpError,
-} from "@modelcontextprotocol/sdk/types.js";
+  Server,
+  ProtocolError,
+  ProtocolErrorCode,
+} from "@modelcontextprotocol/server";
 import axios, { AxiosInstance } from "axios";
 
 // API key should be provided as an environment variable
@@ -41,12 +39,14 @@ class FlightRadarServer {
         capabilities: {
           tools: {},
         },
-      }
+      },
     );
 
     // Check if API key is provided
     if (!API_KEY) {
-      console.error("Warning: AVIATIONSTACK_API_KEY environment variable is not set");
+      console.error(
+        "Warning: AVIATIONSTACK_API_KEY environment variable is not set",
+      );
       console.error("The server will start but API calls will fail");
     }
 
@@ -74,11 +74,12 @@ class FlightRadarServer {
    */
   private setupToolHandlers() {
     // List available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    this.server.setRequestHandler("tools/list", async (): Promise<any> => ({
       tools: [
         {
           name: "get_flight_data",
-          description: "Get real-time data for a specific flight by flight number",
+          description:
+            "Get real-time data for a specific flight by flight number",
           inputSchema: {
             type: "object",
             properties: {
@@ -105,11 +106,13 @@ class FlightRadarServer {
             properties: {
               airline_iata: {
                 type: "string",
-                description: "IATA airline code (e.g., 'BA' for British Airways)",
+                description:
+                  "IATA airline code (e.g., 'BA' for British Airways)",
               },
               airline_icao: {
                 type: "string",
-                description: "ICAO airline code (e.g., 'BAW' for British Airways)",
+                description:
+                  "ICAO airline code (e.g., 'BAW' for British Airways)",
               },
               dep_iata: {
                 type: "string",
@@ -121,12 +124,21 @@ class FlightRadarServer {
               },
               flight_status: {
                 type: "string",
-                description: "Flight status (e.g., 'scheduled', 'active', 'landed', 'cancelled')",
-                enum: ["scheduled", "active", "landed", "cancelled", "incident", "diverted"],
+                description:
+                  "Flight status (e.g., 'scheduled', 'active', 'landed', 'cancelled')",
+                enum: [
+                  "scheduled",
+                  "active",
+                  "landed",
+                  "cancelled",
+                  "incident",
+                  "diverted",
+                ],
               },
               limit: {
                 type: "number",
-                description: "Maximum number of results to return (default: 10, max: 100)",
+                description:
+                  "Maximum number of results to return (default: 10, max: 100)",
                 minimum: 1,
                 maximum: 100,
               },
@@ -158,49 +170,52 @@ class FlightRadarServer {
     }));
 
     // Handle tool calls
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      // Check if API key is available
-      if (!API_KEY) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: "Error: AviationStack API key is not configured. Please set the AVIATIONSTACK_API_KEY environment variable.",
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      try {
-        switch (request.params.name) {
-          case "get_flight_data":
-            return await this.handleGetFlightData(request.params.arguments);
-          case "search_flights":
-            return await this.handleSearchFlights(request.params.arguments);
-          case "get_flight_status":
-            return await this.handleGetFlightStatus(request.params.arguments);
-          default:
-            throw new McpError(
-              ErrorCode.MethodNotFound,
-              `Unknown tool: ${request.params.name}`
-            );
-        }
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
+    this.server.setRequestHandler(
+      "tools/call",
+      async (request): Promise<any> => {
+        // Check if API key is available
+        if (!API_KEY) {
           return {
             content: [
               {
                 type: "text",
-                text: `API Error: ${error.response?.data?.error?.message || error.message}`,
+                text: "Error: AviationStack API key is not configured. Please set the AVIATIONSTACK_API_KEY environment variable.",
               },
             ],
             isError: true,
           };
         }
-        throw error;
-      }
-    });
+
+        try {
+          switch (request.params.name) {
+            case "get_flight_data":
+              return await this.handleGetFlightData(request.params.arguments);
+            case "search_flights":
+              return await this.handleSearchFlights(request.params.arguments);
+            case "get_flight_status":
+              return await this.handleGetFlightStatus(request.params.arguments);
+            default:
+              throw new ProtocolError(
+                ProtocolErrorCode.MethodNotFound,
+                `Unknown tool: ${request.params.name}`,
+              );
+          }
+        } catch (error) {
+          if (axios.isAxiosError(error)) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `API Error: ${error.response?.data?.error?.message || error.message}`,
+                },
+              ],
+              isError: true,
+            };
+          }
+          throw error;
+        }
+      },
+    );
   }
 
   /**
@@ -214,9 +229,9 @@ class FlightRadarServer {
     } else if (args.flight_icao) {
       params.flight_icao = args.flight_icao;
     } else {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        "Either flight_iata or flight_icao must be provided"
+      throw new ProtocolError(
+        ProtocolErrorCode.InvalidParams,
+        "Either flight_iata or flight_icao must be provided",
       );
     }
 
@@ -332,10 +347,14 @@ class FlightRadarServer {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            total_results: response.data.pagination.total,
-            flights: flights,
-          }, null, 2),
+          text: JSON.stringify(
+            {
+              total_results: response.data.pagination.total,
+              flights: flights,
+            },
+            null,
+            2,
+          ),
         },
       ],
     };
@@ -352,9 +371,9 @@ class FlightRadarServer {
     } else if (args.flight_icao) {
       params.flight_icao = args.flight_icao;
     } else {
-      throw new McpError(
-        ErrorCode.InvalidParams,
-        "Either flight_iata or flight_icao must be provided"
+      throw new ProtocolError(
+        ProtocolErrorCode.InvalidParams,
+        "Either flight_iata or flight_icao must be provided",
       );
     }
 

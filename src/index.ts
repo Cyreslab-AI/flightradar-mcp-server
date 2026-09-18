@@ -22,6 +22,136 @@ import axios, { AxiosInstance } from "axios";
 const API_KEY = process.env.AVIATIONSTACK_API_KEY;
 
 /**
+ * JSON Schema describing the structured flight detail object produced by
+ * buildFlightDetail() — used as the outputSchema for both get_flight_data
+ * and get_flight_status, since both tools expose the same shape of data.
+ */
+const FLIGHT_DETAIL_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    flight: {
+      type: "object",
+      description: "Flight identifiers",
+      properties: {
+        number: { type: ["string", "null"] },
+        iata: { type: ["string", "null"] },
+        icao: { type: ["string", "null"] },
+      },
+    },
+    airline: {
+      type: "object",
+      description: "Operating airline",
+      properties: {
+        name: { type: ["string", "null"] },
+        iata: { type: ["string", "null"] },
+        icao: { type: ["string", "null"] },
+      },
+    },
+    departure: {
+      type: "object",
+      description: "Departure airport and timing information",
+      properties: {
+        airport: { type: ["string", "null"] },
+        iata: { type: ["string", "null"] },
+        icao: { type: ["string", "null"] },
+        terminal: { type: ["string", "null"] },
+        gate: { type: ["string", "null"] },
+        scheduled: { type: ["string", "null"] },
+        estimated: { type: ["string", "null"] },
+        actual: { type: ["string", "null"] },
+      },
+    },
+    arrival: {
+      type: "object",
+      description: "Arrival airport and timing information",
+      properties: {
+        airport: { type: ["string", "null"] },
+        iata: { type: ["string", "null"] },
+        icao: { type: ["string", "null"] },
+        terminal: { type: ["string", "null"] },
+        gate: { type: ["string", "null"] },
+        scheduled: { type: ["string", "null"] },
+        estimated: { type: ["string", "null"] },
+        actual: { type: ["string", "null"] },
+      },
+    },
+    status: {
+      type: ["string", "null"],
+      description:
+        "Flight status (e.g., 'scheduled', 'active', 'landed', 'cancelled')",
+    },
+    aircraft: {
+      type: ["object", "null"],
+      description: "Aircraft details as returned by AviationStack, when available",
+      properties: {
+        registration: { type: ["string", "null"] },
+        iata: { type: ["string", "null"] },
+        icao: { type: ["string", "null"] },
+        icao24: { type: ["string", "null"] },
+      },
+    },
+    live: {
+      type: ["object", "null"],
+      description:
+        "Live tracking data as returned by AviationStack, when available",
+      properties: {
+        updated: { type: ["string", "null"] },
+        latitude: { type: ["number", "null"] },
+        longitude: { type: ["number", "null"] },
+        altitude: { type: ["number", "null"] },
+        direction: { type: ["number", "null"] },
+        speed_horizontal: { type: ["number", "null"] },
+        speed_vertical: { type: ["number", "null"] },
+        is_ground: { type: ["boolean", "null"] },
+      },
+    },
+  },
+  required: ["flight", "airline", "departure", "arrival", "status"],
+} as const;
+
+/**
+ * JSON Schema describing the structured output of search_flights.
+ */
+const SEARCH_FLIGHTS_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    total_results: {
+      type: "number",
+      description: "Total number of matching flights reported by the API",
+    },
+    flights: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          flight_number: { type: ["string", "null"] },
+          flight_iata: { type: ["string", "null"] },
+          airline: { type: ["string", "null"] },
+          departure: {
+            type: "object",
+            properties: {
+              airport: { type: ["string", "null"] },
+              iata: { type: ["string", "null"] },
+              scheduled: { type: ["string", "null"] },
+            },
+          },
+          arrival: {
+            type: "object",
+            properties: {
+              airport: { type: ["string", "null"] },
+              iata: { type: ["string", "null"] },
+              scheduled: { type: ["string", "null"] },
+            },
+          },
+          status: { type: ["string", "null"] },
+        },
+      },
+    },
+  },
+  required: ["total_results", "flights"],
+} as const;
+
+/**
  * FlightRadar MCP Server implementation
  */
 class FlightRadarServer {
@@ -97,6 +227,8 @@ class FlightRadarServer {
               { required: ["flight_icao"] },
             ],
           },
+          annotations: { readOnlyHint: true, openWorldHint: true },
+          outputSchema: FLIGHT_DETAIL_OUTPUT_SCHEMA,
         },
         {
           name: "search_flights",
@@ -144,6 +276,8 @@ class FlightRadarServer {
               },
             },
           },
+          annotations: { readOnlyHint: true, openWorldHint: true },
+          outputSchema: SEARCH_FLIGHTS_OUTPUT_SCHEMA,
         },
         {
           name: "get_flight_status",
@@ -165,6 +299,8 @@ class FlightRadarServer {
               { required: ["flight_icao"] },
             ],
           },
+          annotations: { readOnlyHint: true, openWorldHint: true },
+          outputSchema: FLIGHT_DETAIL_OUTPUT_SCHEMA,
         },
       ],
     }));
@@ -250,7 +386,25 @@ class FlightRadarServer {
 
     // Format the flight data for better readability
     const flightData = response.data.data[0];
-    const formattedData = {
+    const formattedData = this.buildFlightDetail(flightData);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(formattedData, null, 2),
+        },
+      ],
+      structuredContent: formattedData,
+    };
+  }
+
+  /**
+   * Build the structured flight detail object shared by get_flight_data and
+   * get_flight_status, from a single raw AviationStack flight record.
+   */
+  private buildFlightDetail(flightData: any) {
+    return {
       flight: {
         number: flightData.flight.number,
         iata: flightData.flight.iata,
@@ -284,15 +438,6 @@ class FlightRadarServer {
       status: flightData.flight_status,
       aircraft: flightData.aircraft,
       live: flightData.live,
-    };
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(formattedData, null, 2),
-        },
-      ],
     };
   }
 
@@ -343,20 +488,19 @@ class FlightRadarServer {
       status: flight.flight_status,
     }));
 
+    const formattedResult = {
+      total_results: response.data.pagination.total,
+      flights: flights,
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify(
-            {
-              total_results: response.data.pagination.total,
-              flights: flights,
-            },
-            null,
-            2,
-          ),
+          text: JSON.stringify(formattedResult, null, 2),
         },
       ],
+      structuredContent: formattedResult,
     };
   }
 
@@ -391,6 +535,11 @@ class FlightRadarServer {
     }
 
     const flight = response.data.data[0];
+
+    // Build the same structured flight detail get_flight_data exposes, so
+    // get_flight_status also returns real machine-parseable data alongside
+    // its human-readable summary below.
+    const structuredData = this.buildFlightDetail(flight);
 
     // Create a human-readable status summary
     let statusSummary = `Flight ${flight.flight.iata} (${flight.airline.name}) is currently ${flight.flight_status}.`;
@@ -470,6 +619,7 @@ class FlightRadarServer {
           text: statusSummary,
         },
       ],
+      structuredContent: structuredData,
     };
   }
 

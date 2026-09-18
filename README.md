@@ -10,11 +10,16 @@ A Model Context Protocol (MCP) server that provides real-time flight tracking an
 
 ## Features
 
-This MCP server provides three main tools:
+This MCP server provides six tools:
 
 1. **get_flight_data**: Get detailed information about a specific flight by its IATA or ICAO code
 2. **search_flights**: Search for flights by various criteria like airline, departure/arrival airports, and status
 3. **get_flight_status**: Get a human-readable status summary for a specific flight
+4. **search_airports**: Look up airport reference data (name, location, timezone) by IATA/ICAO code or by name
+5. **get_airline_info**: Look up airline reference data (name, codes, fleet info) by IATA/ICAO code or by name
+6. **get_future_flights**: Get future scheduled departures or arrivals for an airport on a given future date
+
+Tools 1-3 use AviationStack's real-time `/flights` endpoint, available on the free plan. Tools 4-6 use the `/airports`, `/airlines`, and `/flightsFuture` endpoints, which **require a paid AviationStack plan (Basic or higher)** — calling them with a free-plan key returns a `function_access_restricted` error from the API.
 
 ## Installation
 
@@ -138,11 +143,40 @@ Arrival:
 Status: landed
 ```
 
+### Search Airports
+
+```
+User: What airport is LHR?
+
+Claude: LHR is London Heathrow Airport, London, United Kingdom (ICAO: EGLL, timezone: Europe/London).
+```
+
+### Get Airline Info
+
+```
+User: Which airline is BA?
+
+Claude: BA is British Airways (ICAO: BAW, callsign: SPEEDBIRD), based in the United Kingdom.
+```
+
+### Get Future Flights
+
+```
+User: What flights are scheduled to depart JFK on 2027-03-01?
+
+Claude: Here are scheduled departures from JFK on 2027-03-01:
+
+1. AA100 to LHR, scheduled 2027-03-01T19:00:00
+2. DL1 to CDG, scheduled 2027-03-01T20:30:00
+```
+
 ## API Key Configuration
 
 This server requires an AviationStack API key to function. You can get a free API key (100 requests/month) at [aviationstack.com](https://aviationstack.com/).
 
 The API key should be provided as an environment variable named `AVIATIONSTACK_API_KEY` in your MCP settings configuration.
+
+Note: the free plan only covers real-time flight lookup (`get_flight_data`, `search_flights`, `get_flight_status`). The reference-data tools (`search_airports`, `get_airline_info`, `get_future_flights`) call AviationStack endpoints that require a paid plan (Basic or higher); with a free-plan key they will return an API error (`function_access_restricted`).
 
 ## License
 
